@@ -8,11 +8,27 @@ import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.Driver;
 import java.util.Locale;
+import java.sql.*;
 
 public class Bot extends TelegramLongPollingBot {
 
+    private static Connection connection;
+    private static Statement stmt;
+    private static PreparedStatement psInsert;
+
     public static void main(String[] args) {
+
+        try {
+            connect();
+            insertEx();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            disconnect();
+        }
 
         ApiContextInitializer.init();
         TelegramBotsApi botsApi = new TelegramBotsApi();
@@ -75,4 +91,47 @@ public class Bot extends TelegramLongPollingBot {
     public String getBotToken() {
         return "1774622879:AAGyZEgHnl5DojIEAs5ZxGs-Xt9OhfkEvxU";
     }
-}
+
+    public static void connect() throws ClassNotFoundException, SQLException {
+        Class.forName("org.sqlite.JDBC");
+        connection = DriverManager.getConnection("jdbc:sqlite:myDB.db");
+        stmt = connection.createStatement();
+        // DatabaseMetaData dmd = connection.getMetaData();
+    }
+
+    private static void clearTableEx() throws SQLException {
+        stmt.executeUpdate("DELETE FROM users;");
+    }
+
+    private static void deleteEx() throws SQLException {
+        System.out.println(stmt.executeUpdate("DELETE FROM users WHERE name = 'Alik';"));
+    }
+
+    private static void insertEx() throws SQLException {
+        System.out.println(stmt.executeUpdate("INSERT INTO users (name) VALUES ('Alik');"));
+    }
+
+
+    public static void disconnect() {
+        try {
+            if (stmt != null) {
+                stmt.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        try {
+            if (psInsert != null) {
+                psInsert.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        try {
+            if (connection != null) {
+                connection.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }}
