@@ -39,7 +39,7 @@ public class Parser {
         return page;
     }
 
-    public static String getUrl(String word){ //получение ссылки с аомощью двух букв слова
+    public static String getUrl(String word) throws IOException{ //получение ссылки с аомощью двух букв слова
         String keySymbols = word.substring(0,2).toLowerCase();
         String Url = HTTPS_WOOORDHUNT_RU_DIC_LIST_EN_RU + keySymbols;
         return Url;
