@@ -23,6 +23,9 @@ public class Bot extends TelegramLongPollingBot {
     private static Statement stmt;
     private static PreparedStatement psInsert;
 
+
+    private static String lastWord;
+
     public static void main(String[] args) {
 
         try {
@@ -68,10 +71,13 @@ public class Bot extends TelegramLongPollingBot {
                 case "Да":
                     sendMsg(message,"Какое слово тебя интересует?");
                     break;
-                case "Мой словарь":
+                case "Нет":
+                    sendMsg(message, "Тогда увидимся позже");
+                    break;
+                case "Other":
                     sendMsgWithWords(message);
                     break;
-                case "Очистить словарь":
+                case "Clear":
                     try {
                         clearUserWords(message.getChatId());
                         sendMsg(message,"Словарь очищен");
@@ -79,15 +85,27 @@ public class Bot extends TelegramLongPollingBot {
                         throwables.printStackTrace();
                     }
                     break;
+                case "+":
+                    try {
+                        insertWord(message.getChatId(),lastWord);
+                        sendMsg(message,"Слово у вас в списке");
+                    } catch (SQLException throwables) {
+                        throwables.printStackTrace();
+                    }
+                    break;
+                case "-":
+                    try {
+                        deleteUsersWord(message.getChatId(),lastWord);
+                        sendMsg(message,"Слово удалено");
+                    } catch (SQLException throwables) {
+                        throwables.printStackTrace();
+                    }
+                    break;
                 default:
                     String answer = translator.getTranslate(inText.toLowerCase());
                             if (answer != null) {
+                                lastWord = answer;
                                 sendMsg(message, answer);
-                                try {
-                                    insertWord(message.getChatId(),answer);
-                                } catch (SQLException throwables) {
-                                    throwables.printStackTrace();
-                                }
                                 break;
                             }
                             else{
@@ -108,29 +126,29 @@ public class Bot extends TelegramLongPollingBot {
         return "1774622879:AAGyZEgHnl5DojIEAs5ZxGs-Xt9OhfkEvxU";
     }
 
-    public static void connect() throws ClassNotFoundException, SQLException {
+    public static void connect() throws ClassNotFoundException, SQLException {//соединение с БД
         Class.forName("org.sqlite.JDBC");
         connection = DriverManager.getConnection("jdbc:sqlite:myDB.db");
         stmt = connection.createStatement();
     }
 
-    private static void createWordMap()throws SQLException{
+    private static void createWordMap()throws SQLException{ //создание таблицы
         stmt.executeUpdate("CREATE TABLE WordMap(id INT NOT NULL, Word VARCHAR(60) NOT NULL, PRIMARY KEY(id, Word))");
     }
 
-    private static void clearUserWords(Long id)throws SQLException{
+    private static void clearUserWords(Long id)throws SQLException{//очистка таблицы
         stmt.executeUpdate(String.format("DELETE FROM WordMap WHERE id = ('%s');",id));
     }
 
-    private static void insertWord(Long id, String word)throws SQLException{
+    private static void insertWord(Long id, String word)throws SQLException{//добавление слова
         stmt.executeUpdate(String.format("INSERT INTO WordMap (id, Word) VALUES ('%s','%s');", id, word ));
     }
 
-    private static void deleteUsersWord(Long id, String word) throws SQLException {
+    private static void deleteUsersWord(Long id, String word) throws SQLException {//удаление слова
         stmt.executeUpdate(String.format("DELETE FROM WordMap WHERE id = ('%s') AND Word = ('%s');",id, word));
     }
 
-    private static ArrayList<String> wordsList(Long id)throws SQLException{
+    private static ArrayList<String> wordsList(Long id)throws SQLException{//выборка слов
         ArrayList<String> words = new ArrayList<>();
         ResultSet rs = stmt.executeQuery(String.format("SELECT Word FROM WordMap WHERE id = '%s';",id));
         while(rs.next()){
@@ -139,7 +157,7 @@ public class Bot extends TelegramLongPollingBot {
         return words;
     }
 
-    private void sendMsgWithWords(Message message){
+    private void sendMsgWithWords(Message message){//сортировка слов и разделение на десятки
         String msg = "";
         try {
             ArrayList<String> userWords = wordsList(message.getChatId());
@@ -159,7 +177,7 @@ public class Bot extends TelegramLongPollingBot {
         }
     }
 
-    public  void setButtons(SendMessage sendMessage){
+    public  void setButtons(SendMessage sendMessage){ //специальная клавиатура со специальными командами
         ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
         sendMessage.setReplyMarkup(replyKeyboardMarkup);
         replyKeyboardMarkup.setSelective(true);
@@ -169,10 +187,10 @@ public class Bot extends TelegramLongPollingBot {
         List<KeyboardRow> keyboardRowList = new ArrayList<>();
         KeyboardRow keyboardFistRow = new KeyboardRow();
 
-        keyboardFistRow.add(new KeyboardButton("Мой словарь"));
-        keyboardFistRow.add(new KeyboardButton("Очистить словарь"));
-        keyboardFistRow.add(new KeyboardButton("Удалить слово"));
-        keyboardFistRow.add(new KeyboardButton("Добавить слово"));
+        keyboardFistRow.add(new KeyboardButton("Other"));
+        keyboardFistRow.add(new KeyboardButton("+"));
+        keyboardFistRow.add(new KeyboardButton("-"));
+        keyboardFistRow.add(new KeyboardButton("Clear"));
 
 
         keyboardRowList.add(keyboardFistRow);
@@ -180,7 +198,7 @@ public class Bot extends TelegramLongPollingBot {
     }
 
 
-    public static void disconnect() {
+    public static void disconnect() { //разрыв соединения с БД
         try {
             if (stmt != null) {
                 stmt.close();
